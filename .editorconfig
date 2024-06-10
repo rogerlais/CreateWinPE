@@ -1,0 +1,35 @@
+# http://string-functions.com/encodingtable.aspx?encoding=28591&decoding=1252
+#Ajustes para edição na WEB-IDE do próprio repositório
+#https://git-scm.com/docs/gitattributes Reference to attributes(roger)
+root=true
+end_of_line=CRLF
+insert_final_newline=true
+indent_style=tab
+
+[*.{ps1,psm1,psd1,ps1xml,c,cpp,h,hpp,rc,java}]
+charset=utf-8
+tab_width=4
+indent_size=4
+indent_style=tab
+
+[*.{bat,cmd}]
+charset=latin1
+tab_width=4
+indent_size=4
+indent_style=tab
+
+[*.{txt,todo}]
+charset=utf-8
+tab_width=4
+indent_size=4
+
+[*.{js,py}]
+charset=utf-8
+tab_width=4
+indent_size=4
+
+[*.{editorconfig}]
+charset=utf-8
+tab_width=4
+indent_size=4
+indent_style=tab

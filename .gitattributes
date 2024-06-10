@@ -1,0 +1,11 @@
+#https://git-scm.com/docs/gitattributes Reference to attributes(roger)
+#! Devido a aspectos legados e ao WinPE, este arquivo deve ser mantido sem padronizar tudo para utf-8, ou seja, manter iso-8859-1
+*.ps1		text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+*.psm1		text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+*.psd1		text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+*.ps1xml	text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+*.txt		text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+*.todo		text	working-tree-encoding=utf-8	encoding=utf-8	git-encoding=utf-8	eol=CRLF
+
+*.bat		text	working-tree-encoding=iso-8859-1	encoding=iso-8859-1	git-encoding=iso-8859-1	eol=CRLF
+*.cmd		text	working-tree-encoding=iso-8859-1	encoding=iso-8859-1	git-encoding=iso-8859-1	eol=CRLF
