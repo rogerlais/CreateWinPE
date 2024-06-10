@@ -44,9 +44,34 @@ $Global:RuntimeInfo = [PSCustomObject]@{
 	}
 }
 
+function Get-DefaultPSHome {
+	[CmdletBinding()]
+	param (
+		# Environment name
+		[Parameter()]
+		[String] $EnvName
+	)
+	switch ($EnvName.ToUpper() ) {
+		'DEV' {
+			return 'S:\Powershell'
+		}
+		Default {
+			if ( $Env:SESOP:PSHOME) {
+				return $Env:SESOP:PSHOME
+			}else{
+				return 'D:\AplicTRE\Suporte\Scripts\Powershell'
+			}
+		}
+	}
+}
+
+
 #! Script scope
 $Script:EnvName = $env
-$Script:BasicBSModule = 'basic-bs'
+$Script:BasicBSModule = 'basic-bs.psm1'
+#! Global scope
+$Global:DEFAULT_PSHOME = Get-DefaultPSHome -EnvName $Script:EnvName #'D:\AplicTRE\Suporte\Scripts\Powershell'
+
 
 function Initialize-Bootstrap() {
 	[CmdletBinding()]
@@ -56,14 +81,17 @@ function Initialize-Bootstrap() {
 	)
 	$Error.Clear()
 	#Test basic-bs.psm1 at same folder
-	$bs = Join-Path -Path $PSScriptRoot -ChildPath "$($Script:BasicBSModule).psm1"
+	$bs = [IO.Path]::Combine( $PSScriptRoot , $Script:BasicBSModule )
 	if ( -not (Test-Path -Path $bs) ) {
-		#test if basic-bs.psm1 is at $env:SESOP:PSHOME or current location
-		$PSLibHome = if ($env:SESOP:PSHOME) { $env:SESOP:PSHOME } else { $(Get-Location).Path }
-		$bs = Join-Path -Path $PSLibHome -ChildPath "$($Script:BasicBSModule).psm1"
+		#test if basic-bs.psm1 is at $env:SESOP:PSHOME or default path
+		if ( $Env:SESOP:PSHOME -and $(Test-Path -Path $Env:SESOP:PSHOME) ) { 
+			$bs = [IO.Path]::Combine( $env:SESOP:PSHOME , 'PSAddons', $Script:BasicBSModule )
+		} else { 
+			$bs = [IO.Path]::Combine( $Global:DEFAULT_PSHOME, 'PSAddons', $Script:BasicBSModule ) 
+		}
 		if ( -not (Test-Path -Path $bs) ) {
 			#Test if at all PSModulePath directories
-			$bs = Get-Module -ListAvailable -All -Name $Script:BasicBSModule | Select-Object -ExpandProperty Path
+			$bs = Get-Module -ListAvailable -All -Name [IO.Path]::GetFileNameWithoutExtension( $Script:BasicBSModule ) | Select-Object -ExpandProperty Path
 			if ( -not $bs ) {
 				#throw an error with multiple lines
 				throw @'
@@ -71,14 +99,16 @@ Não foi possível localizar o módulo básico de inicialização(basic-bs)
 Verifique <SESOP:PSHOME>\PSAddons ou na pasta do script
 Acione o suporte(SESOP)
 '@
-			} else {
+			}
+			else {
 				$bs = Select-Object -InputObject $bs -First 1
 			}
 		}
 	}
 	try {
 		Import-Module -FullyQualifiedName $bs -Force 
-	} catch {
+	}
+ catch {
 		throw 
 		@"
 Erro ao importar módulo básico de inicialização: $bs
@@ -125,7 +155,8 @@ function Test-ADKIstalled() {
 		Write-Error 'Windows ADK não instalado em $ADK'
 		Write-Error 'Verfique https://learn.microsoft.com/pt-br/windows/deployment/customize-boot-image?tabs=powershell para instalação do Windows ADK'
 		throw "Windows ADK não instalado em $ADK"
-	} else {
+	}
+ else {
 		Write-Host "Windows ADK instalado em $ADK"
 		$currDir = 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools'
 		if (Get-Location -eq $currDir ) {
@@ -143,10 +174,12 @@ function Install-CumulativeUpdates() {
 		if ($items) {
 			Write-Host "Instalando atualizações cumulativas em $Global:CUMULATIVE_UPDATES_PATH"
 			throw 'Instalação de atualizações cumulativas não implementada'
-		} else {
+		}
+		else {
 			Write-Host "Nenhuma atualização cumulativa encontrada em $Global:CUMULATIVE_UPDATES_PATH"
 		}
-	} else {
+	}
+ else {
 		Write-Error "Diretório de atualizações cumulativas não encontrado em $Global:CUMULATIVE_UPDATES_PATH"
 	}
 }
@@ -358,8 +391,9 @@ function Install-AditionalPackages {
 		if ($pkg.Recommended) {
 			Write-Output "Instalando o pacote $pkg.Name..."
 			#Install-WindowsFeature -Name $pkg.Name
-		} else {
-			Write-Output "Pacote $pkg.Name não recomendado para instalação"
+		}
+		else {
+			Write-Output "Pacote $($pkg.Name) não recomendado para instalação"
 		}
 	}
 }
@@ -426,44 +460,8 @@ function Start-Main() {
 		# Etapa 3: Baixar e instalar pacotes adicionais
 		Install-AditionalPackages -lang 'pt-br'
 
-		<#!Lista de pacotes a instalar:(Ordem ainda a corrigir)
-		Recommended;Name()
-1;WinPE-DismCmdlets.cab
-0;WinPE-Dot3Svc.cab
-1;WinPE-EnhancedStorage.cab
-0;WinPE-FMAPI.cab
-0;WinPE-Fonts-Legacy.cab
-0;WinPE-FontSupport-JA-JP.cab
-0;WinPE-FontSupport-KO-KR.cab
-0;WinPE-FontSupport-WinRE.cab
-0;WinPE-FontSupport-ZH-CN.cab
-0;WinPE-FontSupport-ZH-HK.cab
-0;WinPE-FontSupport-ZH-TW.cab
-0;WinPE-GamingPeripherals.cab
-0;WinPE-HSP-Driver.cab
-0;WinPE-HTA.cab
-1;WinPE-LegacySetup.cab
-0;WinPE-MDAC.cab
-1;WinPE-NetFx.cab
-1;WinPE-PlatformId.cab
-1;WinPE-PmemCmdlets.cab
-1;WinPE-PowerShell.cab
-0;WinPE-PPPoE.cab
-0;WinPE-RNDIS.cab
-1;WinPE-Scripting.cab
-1;WinPE-SecureBootCmdlets.cab
-1;WinPE-SecureStartup.cab
-0;WinPE-Setup-ASZ.cab
-1;WinPE-Setup-Client.cab
-0;WinPE-Setup-Server.cab
-1;WinPE-Setup.cab
-1;WinPE-StorageWMI.cab
-1;WinPE-WDS-Tools.cab
-1;WinPE-WinReCfg.cab
-1;WinPE-WMI.cab
-
-
-ROOT_PATH = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
+		<#
+		ROOT_PATH = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
 		#>
 
 
@@ -496,11 +494,13 @@ ROOT_PATH = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Ki
 			Sum           = $Sum
 		}
 		#>
-	} catch {
+	}
+ catch {
 		$e = [System.ApplicationException]::New( 'Operação falhou com erro não tratado!', $_.Exception )
 		if ($_.Exception -is [System.ApplicationException]) {
 			$e.HResult = $_.Exception.HResult
-		} else {
+		}
+		else {
 			$e.HResult = 1067 #( 3010-3012 = ERROR_SUCCESS_REBOOT_REQUIRED, 3014 = ADDICTIONAL ACTION REQUIRED, 3019 = REBOOT_REQUIRED_TO_COMPLETE, 1067 = ERROR_PROCESS_ABORTED)
 		}
 		throw $e
@@ -516,18 +516,21 @@ try {
 	$OutEMsg = $null
 	Write-Verbose "Iniciando script $(Split-Path -Path $Global:RuntimeInfo.RootScriptPath -Leaf)"
 	Initialize-Bootstrap -EnvName $env
-	Initialize-Env -EnvName $env -StaticModules @( 'PSLibSESOP' ) -DynamicModules @( 'PSLog' ) 
+	Initialize-Env -EnvName $env -StaticModules @( 'PSLibSESOP' ) -DynamicModules @( 'PSLog' ) -FillModulePath
 	Show-Usage -ExtraArgs $RemainArgs
 	$LASTEXITCODE = 0
 	return $( Start-Main -RootPSCmdlet $PSCmdlet )
-} catch [ApplicationException] {
+}
+catch [ApplicationException] {
 	$LASTEXITCODE = $_.Exception.HResult
-	$OutEMsg = "$_.Exception.Message`nCausa: $($_.Exception.InnerException.Message)"
-} catch {
+	$OutEMsg = "$($_.Exception.Message)`nCausa: $($_.Exception.InnerException.Message)"
+}
+catch {
 	#ERROR_PROCESS_ABORTED = 1067, inffered by omission
 	$LASTEXITCODE = 1067
-	$OutEMsg = "Erro: $_.Exception.Message"
-} finally {
+	$OutEMsg = "Erro: $($_.Exception.Message)"
+}
+finally {
 	Write-Debug "Encerrando ambiente de execução($($Global:RuntimeInfo.EnvName))..."
 	Write-Verbose 'Tratamento final do processo de acordo com o host usado...'
 	if ($OutEMsg) {
@@ -537,7 +540,8 @@ try {
 				Write-Error "Retorno da operação = $LASTEXITCODE"
 			}
 		}
-	} else {
+	}
+ else {
 		Write-Verbose 'Operação finalizada com sucesso!!!'
 	}
 }
