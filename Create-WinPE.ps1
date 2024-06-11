@@ -16,6 +16,32 @@
 https://github.com/hvoges/WinPeServicing/blob/master/New-WinPEVhd.ps1
 #>
 
+<#!Ambiente alterado pelo launcher da kit. Tais valores devem ser usados durante o script
+Name                           Value
+----                           -----
+BCDBootRoot                    C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\BCDBoot
+DandIRoot                      C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools
+DISMRoot                       C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\DISM
+HelpIndexerRoot                C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\HelpIndexer
+ICDRoot                        C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Imaging and Configuration Designer\x86
+ImagingRoot                    C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\Imaging
+KitsRoot                       C:\Program Files (x86)\Windows Kits\10\
+KitsRootRegValueName           KitsRoot10
+NewPath                        C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\DISM;C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\Imaging;C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\BCDBoot;C:\Program Files…
+OSCDImgRoot                    C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\Oscdimg
+Path                           C:\Program Files\PowerShell\7;C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\DISM;C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\Imaging;C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\…
+regKeyPath                     HKLM\Software\Wow6432Node\Microsoft\Windows Kits\Installed Roots
+regKeyPathFound                1
+USMTRootNoArch                 C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\User State Migration Tool
+WdsmcastRoot                   C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\AMD64\Wdsmcast
+windir                         C:\Windows
+WindowsSetupRootNoArch         C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Setup
+WinPERoot                      C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment
+WinPERootNoArch                C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment
+wowRegKeyPathFound             1
+WSIMRoot                       C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\WSIM\x86
+#>
+
 #! Variáveis do script
 [CmdletBinding(PositionalBinding = $true)] #Permit collect remaing/unecessary/extra/etc args by position
 param(
@@ -32,7 +58,7 @@ param(
 )
 
 $Global:RuntimeInfo = [PSCustomObject]@{
-	RootCmdlet     = $PSCmdlet  
+	RootCmdlet     = $PSCmdlet
 	RootScriptPath = $PSCmdlet.MyInvocation.MyCommand.Source
 	Author         = 'TRE-PB/COINF/SESOP'
 	Logo           = "$($MyInvocation.MyCommand) - Gerador de imagem WinPE para Windows 11 baseado na ADK e Windows PE Addon"
@@ -58,7 +84,7 @@ function Get-DefaultPSHome {
 		Default {
 			if ( $Env:SESOP:PSHOME) {
 				return $Env:SESOP:PSHOME
-			}else{
+			} else {
 				return 'D:\AplicTRE\Suporte\Scripts\Powershell'
 			}
 		}
@@ -99,16 +125,14 @@ Não foi possível localizar o módulo básico de inicialização(basic-bs)
 Verifique <SESOP:PSHOME>\PSAddons ou na pasta do script
 Acione o suporte(SESOP)
 '@
-			}
-			else {
+			} else {
 				$bs = Select-Object -InputObject $bs -First 1
 			}
 		}
 	}
 	try {
 		Import-Module -FullyQualifiedName $bs -Force 
-	}
- catch {
+	} catch {
 		throw 
 		@"
 Erro ao importar módulo básico de inicialização: $bs
@@ -150,23 +174,45 @@ function Script:OnLongUsage {
 function Test-ADKIstalled() {
 	[CmdletBinding()]
 	param (  )
-	$ADK = 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit'
-	if ( -not (Test-Path -Path $ADK) ) {
-		Write-Error 'Windows ADK não instalado em $ADK'
-		Write-Error 'Verfique https://learn.microsoft.com/pt-br/windows/deployment/customize-boot-image?tabs=powershell para instalação do Windows ADK'
-		throw "Windows ADK não instalado em $ADK"
+	#done: Value loaded by "C:\Windows\system32\cmd.exe /k "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\DandISetEnv.bat" 
+	$envVarList = @(
+		'BCDBootRoot', 'DandIRoot', 'DISMRoot', 'HelpIndexerRoot', 'ICDRoot', 'ImagingRoot', 'KitsRoot', 'KitsRootRegValueName',
+		'NewPath', 'OSCDImgRoot', 'regKeyPath', 'regKeyPathFound', 'USMTRootNoArch', 'WdsmcastRoot', 'WindowsSetupRootNoArch'
+		'WinPERoot', 'WinPERootNoArch', 'wowRegKeyPathFound', 'WSIMRoot' )
+
+	$Fail = $false
+	foreach ($envVar in $envVarList) {
+		$value = Get-Item -Path "Env:$envVar" -ErrorAction SilentlyContinue
+		if ( -not $value ) {
+			Write-Error "Variável de ambiente $envVar não encontrada"
+			$Fail = $true
+		} else {
+			Write-Host 'OK ' -NoNewline -ForegroundColor Green
+			Write-Host "- $envVar = $value"
+		}
 	}
- else {
-		Write-Host "Windows ADK instalado em $ADK"
-		$currDir = 'C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools'
-		if (Get-Location -eq $currDir ) {
-			throw "Diretório atual precisar ser `"$currDir`" para execução do script"
+	if ($Fail) {
+		Write-Error "Este script deve ser chamado a partir do prompt carregado pelo Deployment and Imaging Tools Environment"
+		Read-Host 'Pressione enter para encerrar....'
+		throw 'Variáveis de ambiente do Windows ADK não encontradas complementamente'
+	}
+
+	if ( -not (Test-Path -Path $Global:ADK_PATH ) ) {
+		Write-Error "Windows ADK não instalado em $Global:ADK_PATH"
+		Write-Error 'Verfique https://learn.microsoft.com/pt-br/windows/deployment/customize-boot-image?tabs=powershell para instalação do Windows ADK'
+		throw "Windows ADK não instalado em $Global:ADK_PATH"
+	} else {
+		Write-Host "Windows ADK instalado em $Global:ADK_PATH"
+		if ( $( Get-Location ).Path -ne $Global:ADK_PATH ) {
+			Write-Warning "Diretório atual precisar ser `"$Global:ADK_PATH`" para execução do script"
+			Write-Host 'Alterando o caminho atual para a localização correta...'
+			Set-Location -LiteralPath $Global:ADK_PATH
 		}
 	}
 }
 
 
-function Install-CumulativeUpdates() {
+function Save-CumulativeUpdates() {
 	[CmdletBinding()]
 	param (  )
 	if (Test-Path -Path $Global:CUMULATIVE_UPDATES_PATH) {
@@ -174,13 +220,11 @@ function Install-CumulativeUpdates() {
 		if ($items) {
 			Write-Host "Instalando atualizações cumulativas em $Global:CUMULATIVE_UPDATES_PATH"
 			throw 'Instalação de atualizações cumulativas não implementada'
-		}
-		else {
+		} else {
 			Write-Host "Nenhuma atualização cumulativa encontrada em $Global:CUMULATIVE_UPDATES_PATH"
 		}
-	}
- else {
-		Write-Error "Diretório de atualizações cumulativas não encontrado em $Global:CUMULATIVE_UPDATES_PATH"
+	} else {
+		Write-Warning "Diretório de atualizações cumulativas não encontrado em `"$Global:CUMULATIVE_UPDATES_PATH`""
 	}
 }
 
@@ -389,11 +433,10 @@ function Install-AditionalPackages {
 	}
 	foreach ($pkg in $DESIRED_PACKAGES[$lang]) {
 		if ($pkg.Recommended) {
-			Write-Output "Instalando o pacote $pkg.Name..."
+			Write-Host "Instalando o pacote $($pkg.Name)..."
 			#Install-WindowsFeature -Name $pkg.Name
-		}
-		else {
-			Write-Output "Pacote $($pkg.Name) não recomendado para instalação"
+		} else {
+			Write-Host "Pacote $($pkg.Name) não recomendado para instalação"
 		}
 	}
 }
@@ -419,32 +462,6 @@ function Add-AllVirtIODrivers {
 }
 
 function Start-Main() {
-	<#
-	.SYNOPSIS
-		Main function to be edited to aim the script goals
-	.DESCRIPTION
-		This function is the main entry point of the script, it should be edited to aim the script goals
-		Shell arguments are passed to this function by $RootPSCmdlet
-	.EXAMPLE
-		if ( $RootPSCmdlet.MyInvocation.BoundParameters.<script-parameter>) {
-			$data = FOO( $RootPSCmdlet.MyInvocation.BoundParameters.<script-parameter> )
-		} else {
-			$data = FOO( $null )
-		}
-		switch ($RootPSCmdlet.ParameterSetName) {
-			'CallModelA' {
-			}
-			'CallModelB' {
-			}
-			Default {
-				throw 'Parâmetros inválidos'
-			}
-		}
-	.PARAMETER RootPSCmdlet
-		Parent script PSCmdlet
-	.OUTPUTS
-		An generic object with the data to be returned to the parent script or host
-	#>
 	[CmdletBinding()]
 	[OutputType([PSCustomObject])] #Represents ExitCode from PS Host Process
 	Param(
@@ -456,8 +473,34 @@ function Start-Main() {
 		# Etapa 1: Baixar e instalar o ADK
 		Test-ADKIstalled
 		# Etapa 2: Baixar e instalar atualizações cumulativas
-		Install-CumulativeUpdates
-		# Etapa 3: Baixar e instalar pacotes adicionais
+		Save-CumulativeUpdates
+		# Etapa 3 - Criar backup da sessão atual
+		Backup-PreviousImg
+		# Etapa 4: Montar imagem de inicialização para montar pasta
+		Mount-NewWinPEPath
+		# Etapa 5: Adicionar drivers à imagem de inicialização (opcional)
+		Add-ExtraExternalDrivers
+		# Etapa 6: adicionar componentes opcionais à imagem de inicialização
+		Add-ExtraComponents
+		# Etapa 7: Adicionar CU (atualização cumulativa) à imagem de inicialização
+		Add-CumulativeUpdates
+		# Etapa 8: Copiar arquivos de inicialização da imagem de inicialização montada para o caminho de instalação do ADK
+		Copy-BootImgToNewWinPE
+		# Etapa 9: executar a limpeza de componentes
+		Clear-JunkComponents
+		# Etapa 10: verificar se todos os pacotes desejados foram adicionados à imagem de inicialização
+		Test-WinPEPackages
+		# Etapa 11: Desmontar imagem de inicialização e salvar alterações
+		UnMount-NewWinPEPath
+		# Etapa 12: Exportar imagem de inicialização para reduzir o tamanho
+		Export-NewWinPEImg
+		# Etapa 13: atualizar a imagem de inicialização em produtos que a utilizam (se aplicável)
+		Update-NewWinPE
+		
+
+
+
+		# Etapa NN: Baixar e instalar pacotes adicionais
 		Install-AditionalPackages -lang 'pt-br'
 
 		<#
@@ -494,13 +537,11 @@ function Start-Main() {
 			Sum           = $Sum
 		}
 		#>
-	}
- catch {
+	} catch {
 		$e = [System.ApplicationException]::New( 'Operação falhou com erro não tratado!', $_.Exception )
 		if ($_.Exception -is [System.ApplicationException]) {
 			$e.HResult = $_.Exception.HResult
-		}
-		else {
+		} else {
 			$e.HResult = 1067 #( 3010-3012 = ERROR_SUCCESS_REBOOT_REQUIRED, 3014 = ADDICTIONAL ACTION REQUIRED, 3019 = REBOOT_REQUIRED_TO_COMPLETE, 1067 = ERROR_PROCESS_ABORTED)
 		}
 		throw $e
@@ -520,17 +561,14 @@ try {
 	Show-Usage -ExtraArgs $RemainArgs
 	$LASTEXITCODE = 0
 	return $( Start-Main -RootPSCmdlet $PSCmdlet )
-}
-catch [ApplicationException] {
+} catch [ApplicationException] {
 	$LASTEXITCODE = $_.Exception.HResult
 	$OutEMsg = "$($_.Exception.Message)`nCausa: $($_.Exception.InnerException.Message)"
-}
-catch {
+} catch {
 	#ERROR_PROCESS_ABORTED = 1067, inffered by omission
 	$LASTEXITCODE = 1067
 	$OutEMsg = "Erro: $($_.Exception.Message)"
-}
-finally {
+} finally {
 	Write-Debug "Encerrando ambiente de execução($($Global:RuntimeInfo.EnvName))..."
 	Write-Verbose 'Tratamento final do processo de acordo com o host usado...'
 	if ($OutEMsg) {
@@ -540,8 +578,7 @@ finally {
 				Write-Error "Retorno da operação = $LASTEXITCODE"
 			}
 		}
-	}
- else {
+	} else {
 		Write-Verbose 'Operação finalizada com sucesso!!!'
 	}
 }
